@@ -1,0 +1,16 @@
+{
+	"items": [
+		{
+		"name": "Dropbox Sync",
+		"priority": 0,
+		"items": [
+			{"name": "[ Synchronize ]", "priority": 1, "action": "/mnt/us/python/bin/python2.7 /mnt/us/extensions/dropbox/bin/dbcli.py"},
+			{"name": "[ Push to server ]", "priority": 2, "action": "/mnt/us/python/bin/python2.7 /mnt/us/extensions/dropbox/bin/dbcli.py push"},
+			{"name": "[ Syncronize with log enabled ]", "priority": 3, "action": "/mnt/us/python/bin/python2.7 /mnt/us/extensions/dropbox/bin/dbcli.py >> /mnt/us/documents/dropbox_log.txt 2>&1"},
+			{"name": "[DON'T] Start Daemon", "priority": 4, "action": "/mnt/us/python/bin/python2.7 /mnt/us/extensions/dropbox/bin/dbcli.py --daemon"},
+			{"name": "[DON'T] Stop Daemon", "priority": 5, "action": "kill `pidof dbcli.py`"},
+			{"name": "[ Edit config ]", "priority": 6, "action": "/mnt/us/extensions/dropbox/bin/leafpad.sh"}
+		]
+		}
+	]
+}
