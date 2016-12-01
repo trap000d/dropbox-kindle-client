@@ -10,6 +10,7 @@ import requests.packages.urllib3
 from requests.packages.urllib3.packages import six
 import email.utils
 import mimetypes
+import json
 
 import ConfigParser
 import os
@@ -90,13 +91,18 @@ def db_authping():
         'path': '/'+lib
     }
     r = requests.post(url+'/files/get_metadata', headers=hdr, data=json.dumps(data))
-    jResp = r.json();
+    jResp = r.json()
     if 'error_summary' not in jResp:
+        cprint('Connected to '+jResp['name'],1)
         return ''
     return jResp['error_summary'];
 
 def db_ls_lib(dir_entry='/'):
-    r = requests.get( url + '/api2/repos/' + libid + '/dir/?p=' + dir_entry, headers = hdr, verify=ca_verify)
+
+    data = {
+        'path' : '/' + lib + dir_entry
+    }
+    r = requests.post( url + '/files/list_folder', headers = hdr, data=json.dumps(data))
     return r.json();
 
 def db_get_modified(dir_entry='/'):
@@ -123,16 +129,17 @@ def db_get_modified(dir_entry='/'):
 
     jl=db_ls_lib(dir_entry)
     subdirs_srv=[]
-    for i in jl:
-        if i['type'] == 'file':
+    for i in jl['entries']:
+        if i['.tag'] == 'file':
+            print i['id'], i['name']
             h_srv[i['id']]=i['name']
             h2.append(str(i['id']))
-        elif i['type'] == 'dir':
+        elif i['.tag'] == 'folder':
             p=dir_entry+i['name']
             subdirs_srv.append(i['name'])
             dr,rm,dl,up=db_get_modified(p+'/')
-            db_dr(p,dr)
-            db_rm(p,rm)
+            #db_dr(p,dr)
+            #db_rm(p,rm)
             db_dl(p,dl)
             db_up(p,up)
 
@@ -157,6 +164,8 @@ def db_get_modified(dir_entry='/'):
     for i in list(to_download):
         if i in h_srv.keys():
             f_dl.append(h_srv[i])
+
+    #print d_rm, f_rm , f_dl, h_srv;
     return d_rm, f_rm , f_dl, h_srv;
 
 
@@ -185,8 +194,8 @@ def db_get_ul(dir_entry='/'):
     files_real = [safe_unicode(name) for name in os.listdir(d) if os.path.isfile(os.path.join(d, name)) and not name.startswith('.')]
 
     jl=db_ls_lib(dir_entry)
-    for i in jl:
-        if i['type'] == 'dir':
+    for i in jl['entries']:
+        if i['.tag'] == 'folder':
             p=dir_entry+i['name']
             ul,rms=db_get_ul(p+'/')
             db_ul(p+'/',ul)
@@ -198,6 +207,8 @@ def db_get_ul(dir_entry='/'):
     to_remove_srv = f_hash - f_real
     f_ul = list(to_upload)
     f_rm_srv = list(to_remove_srv)
+    print f_ul
+    print f_rm_srv
     return f_ul, f_rm_srv;
 
 def db_dl(dir_entry, dl_list):
@@ -206,12 +217,19 @@ def db_dl(dir_entry, dl_list):
     cclear (2,1,max_x-3)
     for idx,fname in enumerate(dl_list):
         cprint ('Downloading file '+ str(idx + 1) +' of ' + str(len(dl_list)) ,1)
-        uurl = url + '/api2/repos/' + libid + '/file/?p=' + dir_entry + '/' + fname
-        r = requests.get(uurl, headers=hdr, verify=ca_verify)
-        dl_url = r.content
-        if dl_url.startswith('"') and dl_url.endswith('"'):
-            dl_url = dl_url[1:-1]
-        rdl = requests.get(dl_url, stream=True, verify=ca_verify)
+        #hdr_dl['Dropbox-API-Arg'] = "{\"path\":\"" + "/" + lib + dir_entry + "/" + fname + "\"}"
+        hdr_dl = {
+            'Authorization'  : 'Bearer ' + token ,
+            'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + dir_entry + '/' + fname + '"}')
+        }
+        #print hdr_dl
+        r = requests.post('https://content.dropboxapi.com/2/files/download', headers=hdr_dl)
+        #print r
+        #print r.text
+        #dl_url = r.content
+        #if dl_url.startswith('"') and dl_url.endswith('"'):
+        #    dl_url = dl_url[1:-1]
+        #rdl = requests.get(dl_url, stream=True, verify=ca_verify)
         d = dir_local + dir_entry
         try:
             os.makedirs(d)
@@ -219,13 +237,14 @@ def db_dl(dir_entry, dl_list):
             if not os.path.isdir(d):
                 raise
         with open( d + '/' + fname, 'wb' ) as f:
-            idx=0
-            for chunk in rdl.iter_content(chunk_size=65536):
-                if chunk: # filter out keep-alive new chunks
-                    cout(2, 2, str(idx*64) + ' K')
-                    idx = idx+1
-                    f.write(chunk)
-            cclear(0,2,max_x-1)
+            f.write(r.content)
+            #idx=0
+            #for chunk in r.iter_content(chunk_size=1048576):
+            #    if chunk: # filter out keep-alive new chunks
+            #        cout(2, 2, str(idx) + ' M')
+            #        idx = idx+1
+            #        f.write(chunk)
+            #cclear(0,2,max_x-1)
     return;
 
 def db_rm(dir_entry, rm_list):
@@ -370,7 +389,7 @@ if __name__ == '__main__':
     ### Some hardcoded path
     cfg_dir='/mnt/us/extensions/dropbox'
 
-    config = ConfigParser.RawConfigParser(config_defaults)
+    config = ConfigParser.RawConfigParser()
     cfg_file = cfg_dir + '/dropbox.cfg'
     config.read( cfg_file )
 
@@ -387,7 +406,7 @@ if __name__ == '__main__':
     t.setDaemon(True)
     t.start()
 
-    #cprint ('Connecting to server... ', 1 )
+    cprint ('Connecting... ', 1 )
     #if db_ping() == '':
     #    cprint('Error: Server not available', 1)
     #    quit()
@@ -399,25 +418,25 @@ if __name__ == '__main__':
         quit()
     requests.packages.urllib3.fields.format_header_param = utf8_format_header_param
 
-    if len(sys.argv)>1:
-        if sys.argv[1]=='push':
-            push = True
-            db_push()
-            cclear (0,2,max_x-1)
-            cclear (0,1,max_x-1)
-            cprint ('Done', 1)
-            quit()
-
-    ul, rms = db_get_ul()
-    db_ul('/',ul)
-    db_rm_srv('/', rms)
-
+    #if len(sys.argv)>1:
+    #    if sys.argv[1]=='push':
+    #        push = True
+    #        db_push()
+    #        cclear (0,2,max_x-1)
+    #        cclear (0,1,max_x-1)
+    #        cprint ('Done', 1)
+    #        quit()
+    #
+    #+ul, rms = db_get_ul()
+    #+db_ul('/',ul)
+    #+db_rm_srv('/', rms)
+    #
     dr,rm,dl,up = db_get_modified()
-    db_dr('/',dr)
-    db_rm('/',rm)
-    db_dl('/',dl)
+    #db_dr('/',dr)
+    #db_rm('/',rm)
+    db_dl('',dl)
     db_up('/',up)
-
+    #
     cclear (0,2,max_x-1)
     cclear (0,1,max_x-1)
     cprint ('Done', 1)
