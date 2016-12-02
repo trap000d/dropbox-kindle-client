@@ -93,7 +93,7 @@ def db_authping():
     r = requests.post(url+'/files/get_metadata', headers=hdr, data=json.dumps(data))
     jResp = r.json()
     if 'error_summary' not in jResp:
-        cprint('Connected to '+jResp['name'],1)
+        cprint('Connected to Dropbox',1)
         return ''
     return jResp['error_summary'];
 
@@ -131,15 +131,14 @@ def db_get_modified(dir_entry='/'):
     subdirs_srv=[]
     for i in jl['entries']:
         if i['.tag'] == 'file':
-            print i['id'], i['name']
-            h_srv[i['id']]=i['name']
-            h2.append(str(i['id']))
+            h_srv[i['rev']]=i['name']
+            h2.append(str(i['rev']))
         elif i['.tag'] == 'folder':
             p=dir_entry+i['name']
             subdirs_srv.append(i['name'])
             dr,rm,dl,up=db_get_modified(p+'/')
-            #db_dr(p,dr)
-            #db_rm(p,rm)
+            db_dr(p,dr)
+            db_rm(p,rm)
             db_dl(p,dl)
             db_up(p,up)
 
@@ -165,7 +164,6 @@ def db_get_modified(dir_entry='/'):
         if i in h_srv.keys():
             f_dl.append(h_srv[i])
 
-    #print d_rm, f_rm , f_dl, h_srv;
     return d_rm, f_rm , f_dl, h_srv;
 
 
@@ -174,7 +172,7 @@ def db_get_ul(dir_entry='/'):
     :param dir_entry:
         Relative path to directory 
     :return: 
-        list of files to upload 
+        two lists: first of files to upload, second - files to remove on the server
     """
     fl=[]
     d=os.path.normpath(dir_local + dir_entry)
@@ -207,29 +205,25 @@ def db_get_ul(dir_entry='/'):
     to_remove_srv = f_hash - f_real
     f_ul = list(to_upload)
     f_rm_srv = list(to_remove_srv)
-    print f_ul
-    print f_rm_srv
     return f_ul, f_rm_srv;
 
 def db_dl(dir_entry, dl_list):
+    """ 
+    :param dir_entry:
+        Relative path to directory
+    :param dl_list:
+        list of files to download
+    """
     if not dl_list:
         return
     cclear (2,1,max_x-3)
     for idx,fname in enumerate(dl_list):
         cprint ('Downloading file '+ str(idx + 1) +' of ' + str(len(dl_list)) ,1)
-        #hdr_dl['Dropbox-API-Arg'] = "{\"path\":\"" + "/" + lib + dir_entry + "/" + fname + "\"}"
         hdr_dl = {
             'Authorization'  : 'Bearer ' + token ,
             'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + dir_entry + '/' + fname + '"}')
         }
-        #print hdr_dl
         r = requests.post('https://content.dropboxapi.com/2/files/download', headers=hdr_dl)
-        #print r
-        #print r.text
-        #dl_url = r.content
-        #if dl_url.startswith('"') and dl_url.endswith('"'):
-        #    dl_url = dl_url[1:-1]
-        #rdl = requests.get(dl_url, stream=True, verify=ca_verify)
         d = dir_local + dir_entry
         try:
             os.makedirs(d)
@@ -238,13 +232,6 @@ def db_dl(dir_entry, dl_list):
                 raise
         with open( d + '/' + fname, 'wb' ) as f:
             f.write(r.content)
-            #idx=0
-            #for chunk in r.iter_content(chunk_size=1048576):
-            #    if chunk: # filter out keep-alive new chunks
-            #        cout(2, 2, str(idx) + ' M')
-            #        idx = idx+1
-            #        f.write(chunk)
-            #cclear(0,2,max_x-1)
     return;
 
 def db_rm(dir_entry, rm_list):
@@ -268,7 +255,7 @@ def db_dr(dir_entry, dir_list):
     for idx,dirname in enumerate(dir_list):
         cprint('Removing directory '+ str(idx)+ ' of ' + str(len(dir_list)), 1)
         try:
-            shutil.rmtree(os.path.normpath(dir_local + dir_entry + dirname)) 
+            shutil.rmtree(os.path.normpath(dir_local + dir_entry + '/' + dirname)) 
         except OSError:
             pass
     return;
@@ -292,33 +279,37 @@ def db_ul(dir_entry, ul_list):
     cclear (2,1,max_x-3)
     for idx,lfile in enumerate(ul_list):
         cprint('Uploading '+ str(idx) +' new file of ' + str(len(ul_list)),1)
-        uurl = url + '/api2/repos/' + libid + '/upload-link/?p=' + dir_entry
-        r = requests.get(uurl, headers=hdr, verify=ca_verify)
-        upload_link = r.json()
+        hdr_ul = {
+            'Authorization'  : 'Bearer ' + token ,
+            'Content-type'   : 'application/octet-stream',
+            'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + dir_entry + lfile + '"}')
+        }
         response = requests.post(
-            upload_link, data={'filename': lfile, 'parent_dir': dir_entry},
-            files={'file': open( dir_local + dir_entry + '/' + lfile , 'rb')},
-            headers=hdr,
-            verify= ca_verify
+            'https://content.dropboxapi.com/2/files/upload',
+            headers=hdr_ul,
+            data=open( dir_local + dir_entry + lfile).read(),
         )
-        cprint('Updating hashes...', 1)
-        with open(dir_local + dir_entry + '/.hash','a') as h:
-            s=response.text + ' ' + lfile + '\n'
-            h.write(s.encode('utf-8'))
+        if response.status_code == 200:
+            cprint('Updating hashes...', 1)
+            with open(os.path.normpath(dir_local + dir_entry) + '/.hash','a') as h:
+                rj = response.json()
+                s=rj['rev'] + ' ' + lfile + '\n'
+                h.write(s.encode('utf-8'))
     return;
 
 def db_rm_srv(dir_entry, rm_list):
     """Remove file(s) from rm_list at the server side
-       DELETE https://cloud.seafile.com/api2/repos/{repo-id}/file/?p=/foo
     """
     if not rm_list:
         return
     cclear (2,1,max_x-3)
     for idx,f in enumerate(rm_list):
         cprint('Removing file '+ str(idx)+' of ' + str(len(rm_list))+ ' on server...', 1)
-        uurl = url + '/api2/repos/' + libid + '/file/?p=' + dir_entry + f
-        r = requests.delete(uurl, headers=hdr, verify=ca_verify)
-        if r.status_code == 200 or r.status_code == 400: ## Removed successfully or doesn't exist on server
+        data = {
+            'path': '/' + lib + dir_entry + f
+        }
+        r = requests.post(url+'/files/delete', headers=hdr, data=json.dumps(data))
+        if r.status_code == 200:
             with open(os.path.normpath(dir_local + dir_entry) + '/.hash','r+') as h:
                 data = h.readlines()
                 h.seek(0)
@@ -343,42 +334,29 @@ def db_push():
     files=db_get_push()
     if not files:
         return
-    hashlist=[]
+    hashlist=''
     cclear (2,1,max_x-3)
     for idx,f in enumerate(files):
         fn = os.path.basename(f)
         fb = safe_unicode(fn)
         cprint('Updating file '+ str(idx)+ ' of '+ str(len(files)), 1)
         dir_entry = os.path.relpath(os.path.dirname(f), dir_local)
-        uurl = url + '/api2/repos/' + libid + '/update-link/?p=/' + dir_entry
-        r = requests.get(uurl, headers=hdr, verify=ca_verify)
-        update_link = r.json()
+
+        hdr_ul = {
+            'Authorization'  : 'Bearer ' + token ,
+            'Content-type'   : 'application/octet-stream',
+            'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + '/' + dir_entry + '/' + fb + '"}')
+        }
         response = requests.post(
-            update_link, data={'filename': fb, 'target_file': '/' + dir_entry + '/' + fb },
-            files={'file':( fb , open( f , 'rb').read())},
-            headers=hdr,
-            verify= ca_verify
+            'https://content.dropboxapi.com/2/files/upload',
+            headers=hdr_ul,
+            data=open( dir_local + '/' + dir_entry + '/' + fn).read(),
         )
-        if response.status_code == 441: ## File not exists
-            db_ul('/'+ dir_entry, [fb])
-            return
         if response.status_code == 200:
-            inhash= False
-            with open(os.path.normpath(dir_local + dir_push) + '/.hash','r+') as h:
-                data = h.readlines()
-                h.seek(0)
-                h.truncate()
-                for row in data:
-                    line = row.split(' ', 1 )
-                    if line[0] != '\n':
-                        name = line[1].rstrip()
-                        if fn==name:
-                            inhash = True
-                            line[0]=response.text
-                            hashlist.append(line[0]+ ' ' + name.decode('utf-8'))
-                if inhash == False:
-                    hashlist.append( response.text + ' ' + fn.decode('utf-8'))
-                h.writelines(('\n'.join(hashlist) + '\n').encode('utf-8'))
+            rj = response.json()
+            hashlist = hashlist + rj['rev'] + ' ' + fb + '\n'
+    with open(os.path.normpath(dir_local + dir_push) + '/.hash','w') as h:
+        h.write(hashlist.encode('utf-8'))
     return;
 
 ### --- Main start
@@ -407,36 +385,35 @@ if __name__ == '__main__':
     t.start()
 
     cprint ('Connecting... ', 1 )
-    #if db_ping() == '':
-    #    cprint('Error: Server not available', 1)
-    #    quit()
 
     hdr = { 'Authorization' : 'Bearer ' + token , 'Content-Type': 'application/json'}
     rc = db_authping()
     if rc:
         cprint('Error:'+ rc, 1)
         quit()
+
+    # Here we're monkeypatching system library
     requests.packages.urllib3.fields.format_header_param = utf8_format_header_param
 
-    #if len(sys.argv)>1:
-    #    if sys.argv[1]=='push':
-    #        push = True
-    #        db_push()
-    #        cclear (0,2,max_x-1)
-    #        cclear (0,1,max_x-1)
-    #        cprint ('Done', 1)
-    #        quit()
-    #
-    #+ul, rms = db_get_ul()
-    #+db_ul('/',ul)
-    #+db_rm_srv('/', rms)
-    #
+    if len(sys.argv)>1:
+        if sys.argv[1]=='push':
+            push = True
+            db_push()
+            cclear (0,2,max_x-1)
+            cclear (0,1,max_x-1)
+            cprint ('Done', 1)
+            quit()
+
+    ul, rms = db_get_ul()
+    db_ul('/',ul)
+    db_rm_srv('/', rms)
+
     dr,rm,dl,up = db_get_modified()
-    #db_dr('/',dr)
-    #db_rm('/',rm)
+    db_dr('/',dr)
+    db_rm('/',rm)
     db_dl('',dl)
     db_up('/',up)
-    #
+
     cclear (0,2,max_x-1)
     cclear (0,1,max_x-1)
     cprint ('Done', 1)

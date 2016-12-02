@@ -1,5 +1,5 @@
 [server]
-sync = Books
+library = Books
 token = 
 
 [kindle]
