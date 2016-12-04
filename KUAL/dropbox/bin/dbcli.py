@@ -5,7 +5,6 @@ import threading
 import time
 
 import requests
-from requests.packages.urllib3.exceptions import SubjectAltNameWarning
 import requests.packages.urllib3
 from requests.packages.urllib3.packages import six
 import email.utils
@@ -362,7 +361,6 @@ def db_push():
 ### --- Main start
 
 if __name__ == '__main__':
-    requests.packages.urllib3.disable_warnings(SubjectAltNameWarning)
 
     ### Some hardcoded path
     cfg_dir='/mnt/us/extensions/dropbox'

@@ -5,6 +5,6 @@ token =
 [kindle]
 local = /mnt/us/documents/Dropbox
 upload = /MyKindle_1
-; screen dimensions in chars: 68x60 for PW3/KV, 48x42 for PW2
+; screen dimensions in chars: 68x60 for PW3/KV, 48x42 for PW1 and PW2, 38x33 for KT2 and KT3, 40x50 for KT
 width  = 68
 height = 60
