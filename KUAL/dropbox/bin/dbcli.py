@@ -89,12 +89,29 @@ def db_authping():
     data = {
         'path': '/'+lib
     }
-    r = requests.post(url+'/files/get_metadata', headers=hdr, data=json.dumps(data))
-    jResp = r.json()
-    if 'error_summary' not in jResp:
-        cprint('Connected to Dropbox',1)
-        return ''
-    return jResp['error_summary'];
+    try:
+        r = requests.post(url+'/files/get_metadata', headers=hdr, data=json.dumps(data), timeout=30)
+        r.raise_for_status()
+
+    except requests.exceptions.Timeout:
+        return 'Timeout'
+
+    except ( requests.exceptions.HTTPError, requests.exceptions.RequestException ) as e:
+        print e
+        try:
+            jResp = r.json()
+        except ValueError, ejson:
+            return str(e)
+        else:
+            return 'Connection Error:' + jResp['error_summary']
+
+    if r.status_code == 200:
+        jResp = r.json()
+        if 'error_summary' not in jResp:
+            cprint('Connected to Dropbox',1)
+            return ''
+        return jResp['error_summary'];
+    return 'Unknown error';
 
 def db_ls_lib(dir_entry='/'):
 
@@ -378,6 +395,9 @@ if __name__ == '__main__':
     max_x     = int(config.get('kindle', 'width'))
     max_y     = int(config.get('kindle', 'height'))
 
+    cclear (0,2,max_x-1)
+    cclear (0,1,max_x-1)
+
     t = threading.Thread(target=spinner)
     t.setDaemon(True)
     t.start()
@@ -387,7 +407,8 @@ if __name__ == '__main__':
     hdr = { 'Authorization' : 'Bearer ' + token , 'Content-Type': 'application/json'}
     rc = db_authping()
     if rc:
-        cprint('Error:'+ rc, 1)
+        print('Error:'+ rc)
+        cprint(rc, 1)
         quit()
 
     # Here we're monkeypatching system library
