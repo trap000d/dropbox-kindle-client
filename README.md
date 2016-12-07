@@ -33,12 +33,30 @@ In this case all the contents of directory 'local+upload' will be forced to uplo
 
 Via command line:
 
-```/mnt/us/extensions/dropbox/bin/dbcli.py ``` for sync
-```/mnt/us/extensions/dropbox/bin/dbcli.py push ``` for upload
+```
+/mnt/us/extensions/dropbox/bin/dbcli.py
+``` 
+for sync 
+
+```
+/mnt/us/extensions/dropbox/bin/dbcli.py push 
+```
+
+for upload
 
 ### Known Issues/Bugs/Limitations
-- One'n'half-way synchronization (only newly created local files are uploaded to server). As ID of file is generated on the server, there is no reliable way to determine if file is changed locally by it's ID. File timestamp doesn't look g
-ood too as kindle clock might reset after cold restart.
+
+- One'n'half-way synchronization (only newly created local files are uploaded to server). As ID of file is generated on the server, there is no reliable way to determine if file is changed locally by it's ID. File timestamp doesn't look good too as kindle clock might reset after cold restart.
+
+| Event | Supported |
+| ---   | ---       |
+| File created on Kindle | Y |
+| File removed on Kindle | Y |
+| File changed on Kindle | N |
+| File created on server | Y |
+| File removed on server | Y |
+| File changed on server | Y |
+
 - There is an option for uploading of the particular directory contents (useful e.g. for notes synchronization). As all files in that directory have to be uploaded to the server you should be careful: it could take much time.
 - Directory for uploads must exist on the server. You have to create it there (e.g. via web interface or with official Dropbox client) and perform synchronization (download) at least once before upload.
 - Upload directory must be a sub-folder in directory tree, e.g. /mnt/us/documents/Dropbox/MyKindle_1. In config it should be defined as relative path to the base directory
