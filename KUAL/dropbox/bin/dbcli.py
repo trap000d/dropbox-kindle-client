@@ -15,7 +15,7 @@ import ConfigParser
 import os
 import sys
 import shutil
-from subprocess import call
+from subprocess import call, Popen, PIPE
 
 def spinning_cursor():
     while True:
@@ -100,9 +100,11 @@ def db_authping():
         print e
         try:
             jResp = r.json()
-        except ValueError, ejson:
+        except ValueError:
             return str(e)
         else:
+            if 'error_summary' not in jResp:
+                jResp['error_summary'] == 'Unknown error'
             return 'Connection Error:' + jResp['error_summary']
 
     if r.status_code == 200:
@@ -375,6 +377,14 @@ def db_push():
         h.write(hashlist.encode('utf-8'))
     return;
 
+def screen_size():
+    cmd = Popen('eips 99 99 " "', shell=True, stdout=PIPE)
+    #eips: pixel_in_range> (1600, 2400) pixel not in range (0..1072, 0..1448)
+    for line in cmd.stdout:
+        x = 1 + int(line[58:62])/( int(line[23:27])/100 )
+        y = int(line[67:71])/( int(line[29:33])/100 )
+    return x,y;
+
 ### --- Main start
 
 if __name__ == '__main__':
@@ -392,8 +402,8 @@ if __name__ == '__main__':
 
     dir_local = config.get('kindle', 'local')
     dir_push  = config.get('kindle', 'upload')
-    max_x     = int(config.get('kindle', 'width'))
-    max_y     = int(config.get('kindle', 'height'))
+
+    max_x,max_y = screen_size()
 
     cclear (0,2,max_x-1)
     cclear (0,1,max_x-1)

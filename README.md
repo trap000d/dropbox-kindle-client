@@ -21,9 +21,6 @@ token = s7ergngt3y3fhdsnvjdnvnjfbfywfgywgcsdsdbsd
 local = /mnt/us/documents/Dropbox
 ; contents of /mnt/us/documents/Dropbox/MyKindle_1 ("local"+"upload") will be forced to upload
 upload = /MyKindle_1
-; screen dimensions in chars: 68x60 for PW3/KV, 48x42 for PW2
-width  = 68
-height = 60
 ```
 
 ### Run 
