@@ -16,6 +16,7 @@ import os
 import sys
 import shutil
 from subprocess import call, Popen, PIPE
+from re import findall
 
 def spinning_cursor():
     while True:
@@ -381,16 +382,9 @@ def screen_size():
     cmd = Popen('eips 99 99 " "', shell=True, stdout=PIPE)
     #eips: pixel_in_range> (1600, 2400) pixel not in range (0..1072, 0..1448)
     for line in cmd.stdout:
-        """
-        # more robust split method (if 're' available). Test when get to kindle
-        # import re
-        # l = re.split(r'[().,]\s*' , line.split('> ',1)[1])
-        # take l[1], l[2], l[6], l[9]
-        # x = 1 + int(l[6])/( int(l[1])/100 )
-        # y = int(l[9])/( int(l[2])/100 )
-        """
-        x = 1 + int(line[58:62])/( int(line[23:27])/100 )
-        y = int(line[67:71])/( int(line[29:33])/100 )
+        l = findall(r'\d+', line)
+        x = 1 + int(l[3])/( int(l[0])/100 )
+        y = int(l[5])/( int(l[1])/100 )
     return x,y;
 
 ### --- Main start
