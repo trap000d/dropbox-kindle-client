@@ -387,6 +387,10 @@ def screen_size():
         y = int(l[5])/( int(l[1])/100 )
     return x,y;
 
+def wifi(enable=1):
+    cmd = Popen('lipc-set-prop com.lab126.cmd wirelessEnable ' + str(enable), shell=True)
+    return;
+
 ### --- Main start
 
 if __name__ == '__main__':
@@ -414,6 +418,7 @@ if __name__ == '__main__':
     t.setDaemon(True)
     t.start()
 
+    wifi(1)
     cprint ('Connecting... ', 1 )
 
     hdr = { 'Authorization' : 'Bearer ' + token , 'Content-Type': 'application/json'}
@@ -432,6 +437,7 @@ if __name__ == '__main__':
             db_push()
             cclear (0,2,max_x-1)
             cclear (0,1,max_x-1)
+            wifi(0)
             cprint ('Done', 1)
             quit()
 
@@ -447,4 +453,5 @@ if __name__ == '__main__':
 
     cclear (0,2,max_x-1)
     cclear (0,1,max_x-1)
+    wifi(0)
     cprint ('Done', 1)
