@@ -15,6 +15,7 @@ import ConfigParser
 import os
 import sys
 import shutil
+import socket
 from subprocess import call, Popen, PIPE
 from re import findall
 
@@ -387,10 +388,46 @@ def screen_size():
         y = int(l[5])/( int(l[1])/100 )
     return x,y;
 
-def wifi(enable=1):
-    cmd = Popen('lipc-set-prop com.lab126.cmd wirelessEnable ' + str(enable), shell=True)
-    return;
+def is_connected(url='dropbox.com'):
+    try:
+        host = socket.gethostbyname(url)
+        s = socket.create_connection((host, 80), 2)
+        return True
+    except:
+        time.sleep(1)
+        pass
+    return False
 
+def db_ping():
+    for i in xrange(1, 20):
+        cprint('Testing connection' + '.'*i, 1)
+        if is_connected():
+            return 0;
+    return 1;
+
+def wifi(enable=1):
+    """ returns 0, 1 or error codes """
+    status = 0
+    cmd = Popen('lipc-set-prop com.lab126.cmd wirelessEnable ' + str(enable), shell=True)
+    if enable == 1:
+        for i in xrange(1, 20):
+            """ 20 seconds timeout for starting wireless
+            """
+            status = wifi_status()
+            cprint ('Activating wireless' + '.'*i, 1 )
+            if status == 1:
+                return status;
+            time.sleep(1)
+    return status;
+
+def wifi_status():
+    cmd = Popen('lipc-get-prop com.lab126.cmd wirelessEnable', shell=True, stdout=PIPE)
+    for line in cmd.stdout:
+        l = int(line)
+        if l in (0, 1):
+            return l;
+    return 4;
+    
 ### --- Main start
 
 if __name__ == '__main__':
@@ -418,9 +455,18 @@ if __name__ == '__main__':
     t.setDaemon(True)
     t.start()
 
-    wifi(1)
-    cprint ('Connecting... ', 1 )
+    wifi_old = wifi_status()
+    if wifi_old == 0:
+        w = wifi(1)
+        if w != 1:
+            cprint('Can not activate wireless connection',1)
+            quit()
 
+    rc = db_ping()
+    if rc:
+        cprint('Connection timeout', 1)
+        quit()
+    
     hdr = { 'Authorization' : 'Bearer ' + token , 'Content-Type': 'application/json'}
     rc = db_authping()
     if rc:
@@ -437,7 +483,8 @@ if __name__ == '__main__':
             db_push()
             cclear (0,2,max_x-1)
             cclear (0,1,max_x-1)
-            wifi(0)
+            if wifi_old == 0:
+                wifi(0)
             cprint ('Done', 1)
             quit()
 
@@ -453,5 +500,6 @@ if __name__ == '__main__':
 
     cclear (0,2,max_x-1)
     cclear (0,1,max_x-1)
-    wifi(0)
+    if wifi_old == 0:
+        wifi(0)
     cprint ('Done', 1)
