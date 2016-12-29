@@ -18,16 +18,19 @@ import shutil
 from subprocess import call, Popen, PIPE
 from re import findall
 
+
 def spinning_cursor():
     while True:
         for cursor in '+*':
             yield cursor
 
+
 def spinner():
     s = spinning_cursor()
     while True:
-        call(['eips', '1 ', str(1+max_y-3),  s.next() ])
+        call(['eips', '1 ', str(1 + max_y - 3), s.next()])
         time.sleep(1)
+
 
 def utf8_format_header_param(name, value):
     """
@@ -59,6 +62,7 @@ def utf8_format_header_param(name, value):
     value = '%s*=%s' % (name, value)
     return value
 
+
 def safe_str(obj):
     """ return the byte string representation of obj """
     try:
@@ -67,37 +71,51 @@ def safe_str(obj):
         # obj is unicode
         return unicode(obj).encode('unicode_escape')
 
+
 def safe_unicode(str):
     try:
         return str.decode('utf-8')
     except UnicodeEncodeError:
         return str
 
+
 def cprint(s, ypos):
-    call(['eips', '3 ', str(ypos+max_y-3), safe_str(s)[:max_x-4] ] )
-    return;
+    call(['eips', '3 ', str(ypos + max_y - 3), safe_str(s)[:max_x - 4]])
+    return
+
 
 def cclear(xpos, ypos, len):
-    call(['eips', str(xpos), str(ypos+max_y-3), ' ' * len])
-    return;
+    call(['eips', str(xpos), str(ypos + max_y - 3), ' ' * len])
+    return
+
+
+def cstatus(s):
+    cclear(3, 1, max_x - 3)
+    cprint(s, 1)
+
 
 def cout(xpos, ypos, c):
-    call(['eips', str(xpos), str(ypos+max_y-3), ' '])
-    call(['eips', str(xpos+1), str(ypos+max_y-3),  c ])
-    return;
+    call(['eips', str(xpos), str(ypos + max_y - 3), ' '])
+    call(['eips', str(xpos + 1), str(ypos + max_y - 3), c])
+    return
+
 
 def db_authping():
     data = {
-        'path': '/'+lib
+        'path': '/' + lib
     }
     try:
-        r = requests.post(url+'/files/get_metadata', headers=hdr, data=json.dumps(data), timeout=30)
+        r = requests.post(
+            url + '/files/get_metadata',
+            headers=hdr,
+            data=json.dumps(data),
+            timeout=30)
         r.raise_for_status()
 
     except requests.exceptions.Timeout:
         return 'Timeout'
 
-    except ( requests.exceptions.HTTPError, requests.exceptions.RequestException ) as e:
+    except (requests.exceptions.HTTPError, requests.exceptions.RequestException) as e:
         print e
         try:
             jResp = r.json()
@@ -111,55 +129,61 @@ def db_authping():
     if r.status_code == 200:
         jResp = r.json()
         if 'error_summary' not in jResp:
-            cprint('Connected to Dropbox',1)
+            cstatus('Connected to Dropbox')
             return ''
-        return jResp['error_summary'];
-    return 'Unknown error';
+        return jResp['error_summary']
+    return 'Unknown error'
+
 
 def db_ls_lib(dir_entry='/'):
 
     data = {
-        'path' : '/' + lib + dir_entry
+        'path': '/' + lib + dir_entry
     }
-    r = requests.post( url + '/files/list_folder', headers = hdr, data=json.dumps(data))
-    return r.json();
+    r = requests.post(
+        url + '/files/list_folder',
+        headers=hdr,
+        data=json.dumps(data))
+    return r.json()
+
 
 def db_get_modified(dir_entry='/'):
     """ Returns 4 lists a,b,c,d : a - directories to erase, b - filenames to erase, c - files to download d - hashes to update """
-    h_lcl={}
-    h_srv={}
-    h1=[]
-    h2=[]
-    d=os.path.normpath(dir_local + dir_entry)
+    h_lcl = {}
+    h_srv = {}
+    h1 = []
+    h2 = []
+    d = os.path.normpath(dir_local + dir_entry)
     try:
         os.makedirs(d)
     except OSError:
         if not os.path.isdir(d):
             raise
 
-    with open(d + '/.hash','a+') as f:
+    with open(d + '/.hash', 'a+') as f:
         for row in f:
-            hash = row.split(' ', 1 )
+            hash = row.split(' ', 1)
             name = hash[1].rstrip()
-            h_lcl[hash[0]]=name
+            h_lcl[hash[0]] = name
             h1.append(hash[0])
     f.close()
-    subdirs_local = [safe_unicode(name) for name in os.listdir(d) if os.path.isdir(os.path.join(d, name)) and not name.endswith('.sdr')]
+    subdirs_local = [safe_unicode(name) for name in os.listdir(
+        d) if os.path.isdir(os.path.join(d, name)) and not name.endswith('.sdr')]
 
-    jl=db_ls_lib(dir_entry)
-    subdirs_srv=[]
+    jl = db_ls_lib(dir_entry)
+    subdirs_srv = []
     for i in jl['entries']:
         if i['.tag'] == 'file':
-            h_srv[i['rev']]=i['name']
+            h_srv[i['rev']] = i['name']
             h2.append(str(i['rev']))
         elif i['.tag'] == 'folder':
-            p=dir_entry+i['name']
+            p = dir_entry + i['name']
             subdirs_srv.append(i['name'])
-            dr,rm,dl,up=db_get_modified(p+'/')
-            db_dr(p,dr)
-            db_rm(p,rm)
-            db_dl(p,dl)
-            db_up(p,up)
+            dr, rm, dl, up = db_get_modified(p + '/')
+            db_dr(p, dr)
+            db_rm(p, rm)
+            db_dl(p, dl)
+            db_up(p, up)
 
     f_lcl = set(h1)
     f_srv = set(h2)
@@ -167,14 +191,14 @@ def db_get_modified(dir_entry='/'):
     d_lcl = set(subdirs_local)
     d_srv = set(subdirs_srv)
 
-    dir_to_erase= d_lcl - d_srv
+    dir_to_erase = d_lcl - d_srv
     d_rm = list(dir_to_erase)
 
-    to_erase    = f_lcl - f_srv
+    to_erase = f_lcl - f_srv
     to_download = f_srv - f_lcl
 
-    f_rm=[]
-    f_dl=[]
+    f_rm = []
+    f_dl = []
     for i in list(to_erase):
         if i in h_lcl.keys():
             f_rm.append(h_lcl[i])
@@ -183,18 +207,18 @@ def db_get_modified(dir_entry='/'):
         if i in h_srv.keys():
             f_dl.append(h_srv[i])
 
-    return d_rm, f_rm , f_dl, h_srv;
+    return d_rm, f_rm, f_dl, h_srv
 
 
 def db_get_ul(dir_entry='/'):
-    """ 
+    """
     :param dir_entry:
-        Relative path to directory 
-    :return: 
+        Relative path to directory
+    :return:
         two lists: first of files to upload, second - files to remove on the server
     """
-    fl=[]
-    d=os.path.normpath(dir_local + dir_entry)
+    fl = []
+    d = os.path.normpath(dir_local + dir_entry)
 
     try:
         os.makedirs(d)
@@ -202,32 +226,34 @@ def db_get_ul(dir_entry='/'):
         if not os.path.isdir(d):
             raise
 
-    with open(d + '/.hash','a+') as f:
+    with open(d + '/.hash', 'a+') as f:
         for row in f:
-            hash = row.split(' ', 1 )
+            hash = row.split(' ', 1)
             name = hash[1].rstrip()
             fl.append(safe_unicode(name))
     f.close()
-    files_real = [safe_unicode(name) for name in os.listdir(d) if os.path.isfile(os.path.join(d, name)) and not name.startswith('.')]
+    files_real = [safe_unicode(name) for name in os.listdir(
+        d) if os.path.isfile(os.path.join(d, name)) and not name.startswith('.')]
 
-    jl=db_ls_lib(dir_entry)
+    jl = db_ls_lib(dir_entry)
     for i in jl['entries']:
         if i['.tag'] == 'folder':
-            p=dir_entry+i['name']
-            ul,rms=db_get_ul(p+'/')
-            db_ul(p+'/',ul)
-            db_rm_srv(p+'/', rms)
+            p = dir_entry + i['name']
+            ul, rms = db_get_ul(p + '/')
+            db_ul(p + '/', ul)
+            db_rm_srv(p + '/', rms)
 
     f_hash = set(fl)
     f_real = set(files_real)
-    to_upload   = f_real - f_hash
+    to_upload = f_real - f_hash
     to_remove_srv = f_hash - f_real
     f_ul = list(to_upload)
     f_rm_srv = list(to_remove_srv)
-    return f_ul, f_rm_srv;
+    return f_ul, f_rm_srv
+
 
 def db_dl(dir_entry, dl_list):
-    """ 
+    """
     :param dir_entry:
         Relative path to directory
     :param dl_list:
@@ -235,157 +261,178 @@ def db_dl(dir_entry, dl_list):
     """
     if not dl_list:
         return
-    cclear (2,1,max_x-3)
-    for idx,fname in enumerate(dl_list):
-        cprint ('Downloading file '+ str(idx + 1) +' of ' + str(len(dl_list)) ,1)
+    cclear(2, 1, max_x - 3)
+    for idx, fname in enumerate(dl_list):
+        cstatus('Downloading file ' + str(idx + 1) +
+                ' of ' + str(len(dl_list)))
         hdr_dl = {
-            'Authorization'  : 'Bearer ' + token ,
+            'Authorization': 'Bearer ' + token,
             'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + dir_entry + '/' + fname + '"}')
         }
-        r = requests.post('https://content.dropboxapi.com/2/files/download', headers=hdr_dl)
+        r = requests.post(
+            'https://content.dropboxapi.com/2/files/download',
+            headers=hdr_dl)
         d = dir_local + dir_entry
         try:
             os.makedirs(d)
         except OSError:
             if not os.path.isdir(d):
                 raise
-        with open( d + '/' + fname, 'wb' ) as f:
+        with open(d + '/' + fname, 'wb') as f:
             f.write(r.content)
-    return;
+    return
+
 
 def db_rm(dir_entry, rm_list):
     if not rm_list:
         return
-    cclear (2,1,max_x-3)
-    for idx,fname in enumerate(rm_list):
-        cprint ('Removing '+ str(idx) +' file of ' + str(len(rm_list)), 1)
+    cclear(2, 1, max_x - 3)
+    for idx, fname in enumerate(rm_list):
+        cstatus('Removing ' + str(idx) + ' file of ' + str(len(rm_list)))
         f = safe_unicode(fname.rstrip())
         try:
             os.remove(dir_local + dir_entry + '/' + f)
         except OSError:
             pass
-    return;
+    return
+
 
 def db_dr(dir_entry, dir_list):
     """ remove directories from list """
     if not dir_list:
         return
-    cclear (2,1,max_x-3)
-    for idx,dirname in enumerate(dir_list):
-        cprint('Removing directory '+ str(idx)+ ' of ' + str(len(dir_list)), 1)
+    cclear(2, 1, max_x - 3)
+    for idx, dirname in enumerate(dir_list):
+        cstatus('Removing directory ' + str(idx) + ' of ' + str(len(dir_list)))
         try:
-            shutil.rmtree(os.path.normpath(dir_local + dir_entry + '/' + dirname)) 
+            shutil.rmtree(
+                os.path.normpath(
+                    dir_local +
+                    dir_entry +
+                    '/' +
+                    dirname))
         except OSError:
             pass
-    return;
+    return
+
 
 def db_up(dir_entry, up_list):
     """ Update hash table """
     if not up_list:
         return
-    cclear (2,1,max_x-3)
-    cprint ('Updating hashes...', 1)
-    with open(dir_local + dir_entry + '/.hash','w') as h:
+    cclear(2, 1, max_x - 3)
+    cstatus('Updating hashes...')
+    with open(dir_local + dir_entry + '/.hash', 'w') as h:
         for i in up_list:
-            s=i + ' ' +  up_list[i] + '\n'
+            s = i + ' ' + up_list[i] + '\n'
             h.write(s.encode("UTF-8"))
-    return;
+    return
+
 
 def db_ul(dir_entry, ul_list):
     """ Upload file """
     if not ul_list:
         return
-    cclear (2,1,max_x-3)
-    for idx,lfile in enumerate(ul_list):
-        cprint('Uploading '+ str(idx) +' new file of ' + str(len(ul_list)),1)
+    cclear(2, 1, max_x - 3)
+    for idx, lfile in enumerate(ul_list):
+        cstatus('Uploading ' + str(idx) + ' new file of ' + str(len(ul_list)))
         hdr_ul = {
-            'Authorization'  : 'Bearer ' + token ,
-            'Content-type'   : 'application/octet-stream',
+            'Authorization': 'Bearer ' + token,
+            'Content-type': 'application/octet-stream',
             'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + dir_entry + lfile + '"}')
         }
         response = requests.post(
             'https://content.dropboxapi.com/2/files/upload',
             headers=hdr_ul,
-            data=open( dir_local + dir_entry + lfile).read(),
+            data=open(dir_local + dir_entry + lfile).read(),
         )
         if response.status_code == 200:
-            cprint('Updating hashes...', 1)
-            with open(os.path.normpath(dir_local + dir_entry) + '/.hash','a') as h:
+            cstatus('Updating hashes...')
+            with open(os.path.normpath(dir_local + dir_entry) + '/.hash', 'a') as h:
                 rj = response.json()
-                s=rj['rev'] + ' ' + lfile + '\n'
+                s = rj['rev'] + ' ' + lfile + '\n'
                 h.write(s.encode('utf-8'))
-    return;
+    return
+
 
 def db_rm_srv(dir_entry, rm_list):
     """Remove file(s) from rm_list at the server side
     """
     if not rm_list:
         return
-    cclear (2,1,max_x-3)
-    for idx,f in enumerate(rm_list):
-        cprint('Removing file '+ str(idx)+' of ' + str(len(rm_list))+ ' on server...', 1)
+    cclear(2, 1, max_x - 3)
+    for idx, f in enumerate(rm_list):
+        cstatus('Removing file ' + str(idx) + ' of ' +
+                str(len(rm_list)) + ' on server...')
         data = {
             'path': '/' + lib + dir_entry + f
         }
-        r = requests.post(url+'/files/delete', headers=hdr, data=json.dumps(data))
+        r = requests.post(
+            url + '/files/delete',
+            headers=hdr,
+            data=json.dumps(data))
         if r.status_code == 200:
-            with open(os.path.normpath(dir_local + dir_entry) + '/.hash','r+') as h:
+            with open(os.path.normpath(dir_local + dir_entry) + '/.hash', 'r+') as h:
                 data = h.readlines()
                 h.seek(0)
                 h.truncate()
                 for line in data:
                     if not f in safe_unicode(line):
                         h.write(line)
-    return;
+    return
+
 
 def db_get_push():
-    d=os.path.normpath(dir_local + dir_push)
-    upfiles=[]
+    d = os.path.normpath(dir_local + dir_push)
+    upfiles = []
     for r, s, files in os.walk(d):
         s[:] = [x for x in s if not x.endswith('.sdr')]
         for f in files:
             if not f.startswith('.'):
-                upfiles.append( os.path.join(r, f) )
-    return upfiles;
+                upfiles.append(os.path.join(r, f))
+    return upfiles
+
 
 def db_push():
     """ Push directory to the server """
-    files=db_get_push()
+    files = db_get_push()
     if not files:
         return
-    hashlist=''
-    cclear (2,1,max_x-3)
-    for idx,f in enumerate(files):
+    hashlist = ''
+    cclear(2, 1, max_x - 3)
+    for idx, f in enumerate(files):
         fn = os.path.basename(f)
         fb = safe_unicode(fn)
-        cprint('Updating file '+ str(idx)+ ' of '+ str(len(files)), 1)
+        cstatus('Updating file ' + str(idx) + ' of ' + str(len(files)))
         dir_entry = os.path.relpath(os.path.dirname(f), dir_local)
 
         hdr_ul = {
-            'Authorization'  : 'Bearer ' + token ,
-            'Content-type'   : 'application/octet-stream',
+            'Authorization': 'Bearer ' + token,
+            'Content-type': 'application/octet-stream',
             'Dropbox-API-Arg': safe_str('{"path":' + '"/' + lib + '/' + dir_entry + '/' + fb + '"}')
         }
         response = requests.post(
             'https://content.dropboxapi.com/2/files/upload',
             headers=hdr_ul,
-            data=open( dir_local + '/' + dir_entry + '/' + fn).read(),
+            data=open(dir_local + '/' + dir_entry + '/' + fn).read(),
         )
         if response.status_code == 200:
             rj = response.json()
             hashlist = hashlist + rj['rev'] + ' ' + fb + '\n'
-    with open(os.path.normpath(dir_local + dir_push) + '/.hash','w') as h:
+    with open(os.path.normpath(dir_local + dir_push) + '/.hash', 'w') as h:
         h.write(hashlist.encode('utf-8'))
-    return;
+    return
+
 
 def screen_size():
     cmd = Popen('eips 99 99 " "', shell=True, stdout=PIPE)
-    #eips: pixel_in_range> (1600, 2400) pixel not in range (0..1072, 0..1448)
+    # eips: pixel_in_range> (1600, 2400) pixel not in range (0..1072, 0..1448)
     for line in cmd.stdout:
         l = findall(r'\d+', line)
-        x = 1 + int(l[3])/( int(l[0])/100 )
-        y = int(l[5])/( int(l[1])/100 )
-    return x,y;
+        x = 1 + int(l[3]) / (int(l[0]) / 100)
+        y = int(l[5]) / (int(l[1]) / 100)
+    return x, y
+
 
 def is_connected():
     try:
@@ -395,61 +442,77 @@ def is_connected():
         pass
     return False
 
-def db_ping():
-    cclear (0,1,max_x-1)
-    cprint('Connecting to Dropbox',1)
+
+def db_connect():
+    cstatus('Connecting to Dropbox')
     for i in xrange(1, 20):
         if is_connected():
-            return 0;
+            return 0
         time.sleep(1)
-    return 1;
+    return 1
+
 
 def wifi(enable=1):
     """ returns 0, 1 or error codes """
     status = 0
-    cmd = Popen('lipc-set-prop com.lab126.cmd wirelessEnable ' + str(enable), shell=True)
+    cmd = Popen(
+        'lipc-set-prop com.lab126.cmd wirelessEnable ' +
+        str(enable),
+        shell=True)
     if enable == 1:
-        cclear (0,1,max_x-1)
-        cprint ('Activating wireless', 1)
+        cstatus('Activating wireless connection')
         for i in xrange(1, 20):
             """ 20 seconds timeout for starting wireless
             """
             status = wifi_status()
             if status == 1:
-                return status;
+                return status
             time.sleep(1)
-    return status;
+    return status
+
 
 def wifi_status():
-    cmd = Popen('lipc-get-prop com.lab126.cmd wirelessEnable', shell=True, stdout=PIPE)
+    cmd = Popen(
+        'lipc-get-prop com.lab126.cmd wirelessEnable',
+        shell=True,
+        stdout=PIPE)
     for line in cmd.stdout:
         l = int(line)
         if l in (0, 1):
-            return l;
-    return 4;
+            return l
+    return 4
 
-### --- Main start
+
+def quit_with(msg):
+    if wifi_old == 0:
+        wifi(0)
+    cstatus(msg)
+    quit()
+    return
+
+
+# --- Main start
 
 if __name__ == '__main__':
 
-    ### Some hardcoded path
-    cfg_dir='/mnt/us/extensions/dropbox'
+    # Some hardcoded path
+    cfg_dir = '/mnt/us/extensions/dropbox'
 
     config = ConfigParser.RawConfigParser()
     cfg_file = cfg_dir + '/dropbox.cfg'
-    config.read( cfg_file )
+    config.read(cfg_file)
 
-    url       = 'https://api.dropboxapi.com/2'
-    lib       = config.get('server', 'library')
-    token     = config.get('server', 'token')
+    url = 'https://api.dropboxapi.com/2'
+    lib = config.get('server', 'library')
+    token = config.get('server', 'token')
 
     dir_local = config.get('kindle', 'local')
-    dir_push  = config.get('kindle', 'upload')
+    dir_push = config.get('kindle', 'upload')
 
-    max_x,max_y = screen_size()
+    max_x, max_y = screen_size()
 
-    cclear (0,2,max_x-1)
-    cclear (0,1,max_x-1)
+    cclear(0, 2, max_x - 1)
+    cclear(0, 1, max_x - 1)
 
     t = threading.Thread(target=spinner)
     t.setDaemon(True)
@@ -459,47 +522,37 @@ if __name__ == '__main__':
     if wifi_old == 0:
         w = wifi(1)
         if w != 1:
-            cprint('Can not activate wireless connection',1)
-            quit()
+            quit_with('Can not activate wireless connection')
 
-    rc = db_ping()
+    rc = db_connect()
     if rc:
-        cprint('Connection timeout', 1)
-        quit()
+        quit_with('Connection timeout')
 
-    hdr = { 'Authorization' : 'Bearer ' + token , 'Content-Type': 'application/json'}
+    hdr = {'Authorization': 'Bearer ' + token,
+           'Content-Type': 'application/json'}
     rc = db_authping()
     if rc:
-        print('Error:'+ rc)
-        cprint(rc, 1)
-        quit()
+        quit_with(rc)
 
     # Here we're monkeypatching system library
     requests.packages.urllib3.fields.format_header_param = utf8_format_header_param
 
-    if len(sys.argv)>1:
-        if sys.argv[1]=='push':
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'push':
             push = True
             db_push()
-            cclear (0,2,max_x-1)
-            cclear (0,1,max_x-1)
-            if wifi_old == 0:
-                wifi(0)
-            cprint ('Done', 1)
-            quit()
+            cclear(0, 2, max_x - 1)
+            quit_with('Done')
 
     ul, rms = db_get_ul()
-    db_ul('/',ul)
+    db_ul('/', ul)
     db_rm_srv('/', rms)
 
-    dr,rm,dl,up = db_get_modified()
-    db_dr('/',dr)
-    db_rm('/',rm)
-    db_dl('',dl)
-    db_up('/',up)
+    dr, rm, dl, up = db_get_modified()
+    db_dr('/', dr)
+    db_rm('/', rm)
+    db_dl('', dl)
+    db_up('/', up)
 
-    cclear (0,2,max_x-1)
-    cclear (0,1,max_x-1)
-    if wifi_old == 0:
-        wifi(0)
-    cprint ('Done', 1)
+    cclear(0, 2, max_x - 1)
+    quit_with('Done')
