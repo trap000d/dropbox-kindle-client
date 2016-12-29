@@ -15,7 +15,6 @@ import ConfigParser
 import os
 import sys
 import shutil
-import socket
 from subprocess import call, Popen, PIPE
 from re import findall
 
@@ -388,21 +387,21 @@ def screen_size():
         y = int(l[5])/( int(l[1])/100 )
     return x,y;
 
-def is_connected(url='dropbox.com'):
+def is_connected():
     try:
-        host = socket.gethostbyname(url)
-        s = socket.create_connection((host, 80), 2)
+        _ = requests.get(url, timeout=2)
         return True
-    except:
-        time.sleep(1)
+    except requests.ConnectionError:
         pass
     return False
 
 def db_ping():
+    cclear (0,1,max_x-1)
+    cprint('Connecting to Dropbox',1)
     for i in xrange(1, 20):
-        cprint('Testing connection' + '.'*i, 1)
         if is_connected():
             return 0;
+        time.sleep(1)
     return 1;
 
 def wifi(enable=1):
@@ -410,11 +409,12 @@ def wifi(enable=1):
     status = 0
     cmd = Popen('lipc-set-prop com.lab126.cmd wirelessEnable ' + str(enable), shell=True)
     if enable == 1:
+        cclear (0,1,max_x-1)
+        cprint ('Activating wireless', 1)
         for i in xrange(1, 20):
             """ 20 seconds timeout for starting wireless
             """
             status = wifi_status()
-            cprint ('Activating wireless' + '.'*i, 1 )
             if status == 1:
                 return status;
             time.sleep(1)
@@ -427,7 +427,7 @@ def wifi_status():
         if l in (0, 1):
             return l;
     return 4;
-    
+
 ### --- Main start
 
 if __name__ == '__main__':
@@ -466,7 +466,7 @@ if __name__ == '__main__':
     if rc:
         cprint('Connection timeout', 1)
         quit()
-    
+
     hdr = { 'Authorization' : 'Bearer ' + token , 'Content-Type': 'application/json'}
     rc = db_authping()
     if rc:
