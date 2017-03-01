@@ -7,7 +7,7 @@ Based on Seafile client https://github.com/trap000d/seafile-kindle-client
 - Your kindle must be jailbroken
 - Install python for kindle http://www.mobileread.com/forums/showthread.php?t=225030
 - Copy/unpack the contents of KUAL/dropbox directory to /mnt/us/extensions/dropbox
-- Copy dropbox.cfg.example to dropbox.cfg, set Dropbox folder to sync, as well as your Dropbox token (see howto generate token here: https://www.dropbox.com/developers/reference/oauth-guide#setting-up-your-app)
+- Copy dropbox.cfg.example to dropbox.cfg, set Dropbox folder to sync, as well as your Dropbox token (see howto generate token here: https://www.dropbox.com/developers/reference/oauth-guide#setting-up-your-app , select "Full Dropbox" access for your application) 
 
 ```
 [server]
@@ -46,6 +46,7 @@ for upload
 
 ### Known Issues/Bugs/Limitations
 
+- Doesn't work with "App Folder" access Dropbox app type. You have to create "Full Dropbox" access application.
 - One'n'half-way synchronization (only newly created local files are uploaded to server). As ID of file is generated on the server, there is no reliable way to determine if file is changed locally by it's ID. File timestamp doesn't look good too as kindle clock might reset after cold restart.
 
 | Event | Supported |
