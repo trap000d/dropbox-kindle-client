@@ -101,17 +101,14 @@ def cout(xpos, ypos, c):
 
 
 def db_authping():
-    data = {
-        'path': '/' + lib
-    }
+    data = None
     try:
         r = requests.post(
-            url + '/files/get_metadata',
+            url + '/users/get_current_account',
             headers=hdr,
             data=json.dumps(data),
             timeout=30)
         r.raise_for_status()
-
     except requests.exceptions.Timeout:
         return 'Timeout'
 
@@ -129,11 +126,10 @@ def db_authping():
     if r.status_code == 200:
         jResp = r.json()
         if 'error_summary' not in jResp:
-            cstatus('Connected to Dropbox')
+            cstatus('Logged in as ' + jResp['name']['display_name'])
             return ''
         return jResp['error_summary']
     return 'Unknown error'
-
 
 def db_ls_lib(dir_entry='/'):
 
@@ -288,7 +284,7 @@ def db_rm(dir_entry, rm_list):
         return
     cclear(2, 1, max_x - 3)
     for idx, fname in enumerate(rm_list):
-        cstatus('Removing ' + str(idx) + ' file of ' + str(len(rm_list)))
+        cstatus('Removing ' + str(idx+1) + ' file of ' + str(len(rm_list)))
         f = safe_unicode(fname.rstrip())
         try:
             os.remove(dir_local + dir_entry + '/' + f)
@@ -303,7 +299,7 @@ def db_dr(dir_entry, dir_list):
         return
     cclear(2, 1, max_x - 3)
     for idx, dirname in enumerate(dir_list):
-        cstatus('Removing directory ' + str(idx) + ' of ' + str(len(dir_list)))
+        cstatus('Removing directory ' + str(idx+1) + ' of ' + str(len(dir_list)))
         try:
             shutil.rmtree(
                 os.path.normpath(
@@ -335,7 +331,7 @@ def db_ul(dir_entry, ul_list):
         return
     cclear(2, 1, max_x - 3)
     for idx, lfile in enumerate(ul_list):
-        cstatus('Uploading ' + str(idx) + ' new file of ' + str(len(ul_list)))
+        cstatus('Uploading ' + str(idx + 1) + ' new file of ' + str(len(ul_list)))
         hdr_ul = {
             'Authorization': 'Bearer ' + token,
             'Content-type': 'application/octet-stream',
@@ -362,7 +358,7 @@ def db_rm_srv(dir_entry, rm_list):
         return
     cclear(2, 1, max_x - 3)
     for idx, f in enumerate(rm_list):
-        cstatus('Removing file ' + str(idx) + ' of ' +
+        cstatus('Removing file ' + str(idx + 1) + ' of ' +
                 str(len(rm_list)) + ' on server...')
         data = {
             'path': '/' + lib + dir_entry + f
@@ -403,7 +399,7 @@ def db_push():
     for idx, f in enumerate(files):
         fn = os.path.basename(f)
         fb = safe_unicode(fn)
-        cstatus('Updating file ' + str(idx) + ' of ' + str(len(files)))
+        cstatus('Updating file ' + str(idx + 1) + ' of ' + str(len(files)))
         dir_entry = os.path.relpath(os.path.dirname(f), dir_local)
 
         hdr_ul = {
