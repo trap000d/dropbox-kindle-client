@@ -31,7 +31,6 @@ def spinner():
         call(['eips', '1 ', str(1 + max_y - 3), s.next()])
         time.sleep(1)
 
-
 def utf8_format_header_param(name, value):
     """
     Helper function to format and quote a single header parameter.
@@ -494,6 +493,7 @@ if __name__ == '__main__':
     # Some hardcoded path
     cfg_dir = '/mnt/us/extensions/dropbox'
 
+
     config = ConfigParser.RawConfigParser()
     cfg_file = cfg_dir + '/dropbox.cfg'
     config.read(cfg_file)
@@ -509,6 +509,22 @@ if __name__ == '__main__':
 
     cclear(0, 2, max_x - 1)
     cclear(0, 1, max_x - 1)
+
+    """ TODO -- Exception hook 
+    import logging
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(filename='/mnt/us/documents/dropbox.log', filemode='w', level=logging.DEBUG)
+
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        cstatus('Uncaught exception, dumping traceback to dropbox.log ...')
+        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+    sys.excepthook = handle_exception
+    """
 
     t = threading.Thread(target=spinner)
     t.setDaemon(True)
