@@ -427,7 +427,7 @@ def screen_size():
         l = findall(r'\d+', line)
         x = 1 + int(l[3]) / (int(l[0]) / 100)
         y = int(l[5]) / (int(l[1]) / 100)
-    return x, y
+        return x, y
 
 
 def is_connected():
