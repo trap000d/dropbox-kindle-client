@@ -421,13 +421,10 @@ def db_push():
 
 
 def screen_size():
-    cmd = Popen('eips 99 99 " "', shell=True, stdout=PIPE)
-    # eips: pixel_in_range> (1600, 2400) pixel not in range (0..1072, 0..1448)
-    for line in cmd.stdout:
-        l = findall(r'\d+', line)
-        x = 1 + int(l[3]) / (int(l[0]) / 100)
-        y = int(l[5]) / (int(l[1]) / 100)
-        return x, y
+    # QnD fix for PW4
+    x = 67
+    y = 60
+    return x, y
 
 
 def is_connected():
